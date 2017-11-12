@@ -20,7 +20,7 @@ public class MapGenerator : MonoBehaviour {
 	public Vector2 offset;
 
 
-	public bool autoUpdate; 
+	public bool autoUpdate;  
 
 	public TerrainType[] regions;  //set the regions in here if they won't change
 
