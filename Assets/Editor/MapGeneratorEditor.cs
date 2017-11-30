@@ -6,7 +6,8 @@ using UnityEditor;
 [CustomEditor (typeof(MapGenerator))]
 public class MapGeneratorEditor : Editor {
 
-	public override void OnInspectorGUI(){
+	public override void OnInspectorGUI()
+    {
 		MapGenerator mapGen = (MapGenerator)target;
 
 		if (DrawDefaultInspector ()) { //if any value was chnange 
@@ -16,9 +17,9 @@ public class MapGeneratorEditor : Editor {
 
 		}
 
-		if (GUILayout.Button ("Generate")) { //generates map when we click generate but should do it when game starts 
-			mapGen.GenerateMap ();
-		}
+		//if (GUILayout.Button ("Generate")) { //generates map when we click generate but should do it when game starts 
+		//	mapGen.GenerateMap ();
+		//}
 
 
 	}
