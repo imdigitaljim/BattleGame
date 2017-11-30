@@ -74,7 +74,7 @@ public class NetworkConnectionP2P : MonoBehaviour
     private void Reset()
     {
         Debug.Log("resetting...");
-        isConnected = false;
+        isConnected = receivedAll = false;
         byte error;
         foreach(var entry in peer_fds)
         {
@@ -85,6 +85,7 @@ public class NetworkConnectionP2P : MonoBehaviour
         _spawner.Clear();
         map_seeds.Clear();
         peer_fds.Clear();
+        ConnectionIdTable.Clear();
     }
 
     private void OnGUI()
@@ -135,7 +136,8 @@ public class NetworkConnectionP2P : MonoBehaviour
         {
             if (!map_seeds.ContainsKey(i))
             {
-                SendData(i.ToString(), REQUEST);
+               // DebugLog("I'm missing a map from Player: " + i);
+               // SendData(string.Format("{0}", i), REQUEST, new List<int>(){ i } );
             }
 
         }
@@ -154,21 +156,19 @@ public class NetworkConnectionP2P : MonoBehaviour
     }
     void Connect()
     {
-        DebugLog("trying to connect...");
+      //  DebugLog("trying to connect...");
         byte error;
         for(int i = 1; i <= session_player_max; i++)
         {
             if (i == this_player_id) continue;
-            DebugLog("using " + ALL_PORTS[i]);
             peer_fds[i] = NetworkTransport.Connect(hostId, "127.0.0.1", ALL_PORTS[i], 0, out error);
-            DebugLog(string.Format("Connected to topology. ConnectionFd: {0} for player {1}", peer_fds[i], i));
+           // DebugLog(string.Format("Connected to topology. fd: {0} for player {1}", peer_fds[i], i));
         }
         isConnected = true;
         map_seeds[this_player_id] = _spawner.SpawnMap(this_player_id, session_player_max);
-        DebugLog("my seed is " + map_seeds[this_player_id]);
     }
 
-    public void SendData(string message, byte type)
+    public void SendData(string message, byte type, List<int> players = null)
     {
         try
         {
@@ -185,11 +185,18 @@ public class NetworkConnectionP2P : MonoBehaviour
             string newmessage = Encoding.ASCII.GetString(sendBuffer, 1, 1023);
             Debug.Log(newmessage);
             byte error;
-            foreach (var entry in peer_fds)
+            if (players == null)
             {
-                DebugLog("sending..." + entry.Value);
-                NetworkTransport.Send(hostId, entry.Value, channelId, sendBuffer, sendBuffer.Length, out error);
+                Broadcast(sendBuffer);
             }
+            else
+            {
+                foreach (var i in players)
+                {
+                    NetworkTransport.Send(hostId, peer_fds[i], channelId, sendBuffer, sendBuffer.Length, out error);
+                }
+            }
+
         }
         catch (Exception e)
         {
@@ -197,6 +204,17 @@ public class NetworkConnectionP2P : MonoBehaviour
             // when trying to chat before its ready!
         }
 
+    }
+
+
+    public void Broadcast(byte[] buffer)
+    {
+        byte error; 
+        foreach (var entry in peer_fds)
+        {
+            //DebugLog("broadcasting to: " + entry.Value);
+            NetworkTransport.Send(hostId, entry.Value, channelId, buffer, buffer.Length, out error);
+        }
     }
 
     void ReceiveData()
@@ -238,66 +256,82 @@ public class NetworkConnectionP2P : MonoBehaviour
 
     void OnConnect(int hostId, int connectionId, NetworkError error)
     {
-        DebugLog("OnConnect(hostId = " + hostId + ", connectionId = "
-            + connectionId + ", error = " + error.ToString() + ")");
-        SendData(string.Format("{0}|{1}", this_player_id, map_seeds[this_player_id]), MAP);
+        //DebugLog("OnConnect(hostId = " + hostId + ", connectionId = "
+        //    + connectionId + ", error = " + error.ToString() + ")");
+        SendData(string.Format("{0}|{1}", this_player_id, map_seeds[this_player_id]), SYNC);
     }
 
     void OnDisconnect(int hostId, int connectionId, NetworkError error)
     {
-        DebugLog("OnDisconnect(hostId = " + hostId + ", connectionId = "
-            + connectionId + ", error = " + error.ToString() + ")");
+        if (ConnectionIdTable.ContainsKey(connectionId))
+        {
+            DebugLog(string.Format("Player {0} disconnected (id={1})", ConnectionIdTable[connectionId], connectionId));
+            ConnectionIdTable.Remove(connectionId);
+        }
     }
 
     void OnData(int hostId, int connectionId, int channelId, byte[] buffer, int size, NetworkError error)
     {
-        ProcessBuffer(buffer);
+        DebugLog("===============================================\nReceived:");
+        ProcessBuffer(buffer, connectionId);
     }
 
+   
+    Dictionary<int, int> ConnectionIdTable = new Dictionary<int, int>(); //id : player#
+
+    const int ANY = -1;
 
     const byte CHAT = 0;
     const byte OTHER = 1;
-    const byte MAP = 2;
+    const byte SYNC = 2;
     const byte REQUEST = 3;
     
-    private void ProcessBuffer(byte[] buffer)
+    private void ProcessBuffer(byte[] buffer, int connectionId)
     {
         string message = Encoding.ASCII.GetString(buffer, 1, 1023).Replace("\0", string.Empty);
-        DebugLog("===============================================\nReceived:");
-        DebugLog(string.Format("CODE {0} MESSAGE< {1} >", Convert.ToInt32(buffer[0]), message));
+        
+       // DebugLog(string.Format("CODE {0} MESSAGE< {1} >", Convert.ToInt32(buffer[0]), message));
 
+        string[] map_info;
+        int from_peer, seed;
         switch (buffer[0])
         {
             case CHAT:
-                DebugLog("CHAT\n===============================================");
+                //DebugLog("CHAT\n===============================================");
                 DebugLog(message);
                 break;
-            case MAP:
-                DebugLog("MAP\n===============================================");
-                var map_info = message.Split('|');
-                DebugLog(string.Format("received map of user {0} of seed {1}", map_info[0], map_info[1]));
-                int seed, id;
-                Int32.TryParse(map_info[0], out id);
+            case SYNC:
+                //DebugLog("MAP\n===============================================");
+                map_info = message.Split('|');
+                Int32.TryParse(map_info[0], out from_peer);
                 Int32.TryParse(map_info[1], out seed);
-                map_seeds[id] = seed;
-                DebugLog("passing in " + id);
-                _spawner.SpawnMap(id, session_player_max, seed);
-                for(int i = 1; i <= session_player_max; i++)
+                ConnectionIdTable[connectionId] = from_peer;
+                if (map_seeds.ContainsKey(from_peer) && map_seeds[from_peer] == seed) break;
+                DebugLog(string.Format("Player {0} is connected.(id={1})", from_peer, connectionId));
+                map_seeds[from_peer] = seed;
+                _spawner.SpawnMap(from_peer, session_player_max, seed);
+                int i;
+                for (i = 1; i <= session_player_max; ++i)
                 {
-                    if (!map_seeds.ContainsKey(i)) return;
+                    if (!map_seeds.ContainsKey(i)) 
+                    {
+                        DebugLog("Still missing player : " + i);
+                        break;
+                    }
                 }
-                receivedAll = true;
+                receivedAll = i > session_player_max;
                 break;
             case REQUEST:
-                DebugLog("REQUEST\n===============================================");
-                SendData(string.Format("{0}|{1}", this_player_id, map_seeds[this_player_id]), MAP);
+                //DebugLog("REQUEST\n===============================================");         
+                Int32.TryParse(message, out from_peer);
+                SendData(string.Format("{0}|{1}", this_player_id,  map_seeds[this_player_id]), SYNC, new List<int>() { from_peer });
                 break;
             case OTHER:
-                DebugLog("OTHER\n===============================================");
+                //DebugLog("OTHER\n===============================================");
                 // do something
                 break;
             default:
-                DebugLog("DEFAULT\n===============================================");
+                //DebugLog("DEFAULT\n===============================================");
                 // do something
                 break;
         }

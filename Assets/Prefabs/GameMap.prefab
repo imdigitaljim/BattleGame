@@ -108,6 +108,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 41a64e082ae18b743a6fd0d7022ca070, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  id: 0
 --- !u!114 &114497209213863250
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -137,5 +138,5 @@ MonoBehaviour:
     height: 0.6
     colour: {r: 0.6313726, g: 0.6313726, b: 0.49803922, a: 0}
   - name: Land
-    height: 0.7
+    height: 1
     colour: {r: 0.023529412, g: 0.3529412, b: 0.13333334, a: 0}

@@ -7,7 +7,7 @@ public class MapGenerator : MonoBehaviour
 
     public int SetNewMap(Vector2 size, Vector2 pos, int _seed)
     {
-        Debug.Log("setting map of size " + size + " at position " + pos);
+        //Debug.Log("setting map of size " + size + " at position " + pos);
         mapWidth = Mathf.RoundToInt(size.x);
         mapHeight = Mathf.RoundToInt(size.y);
         gameObject.transform.position = new Vector3(pos.x, 0, pos.y);

@@ -22,7 +22,7 @@ public class MapSpawn : MonoBehaviour
     }
 	public int SpawnMap(int i, int max_players, int seed = -1)
     {
-        net.DebugLog(string.Format("spawning map for player {0} of {1} with seed of {2}", i, max_players, seed));
+        //net.DebugLog(string.Format("spawning map for player {0} of {1} with seed of {2}", i, max_players, seed));
         if (_maps.ContainsKey(i))
             Destroy(_maps[i]);
         _maps[i] = Instantiate(gameMapPrefab);

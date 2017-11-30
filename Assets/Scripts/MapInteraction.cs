@@ -23,7 +23,7 @@ public class MapInteraction : MonoBehaviour
     {
         net = _net;
         id = _id;
-        net.DebugLog(string.Format("I belong to {0} set by {1}", id, _id));
+      //  net.DebugLog(string.Format("I belong to {0} set by {1}", id, _id));
     }
 
 
