@@ -5,23 +5,27 @@ using UnityEngine;
 public class MapGenerator : MonoBehaviour
 {
 
-    public int SetNewMap(Vector2 size, Vector2 pos, int _seed)
+    public int SetNewMap(Vector2 size, Vector2 pos, int _seed, int id)
     {
+        gameObject.GetComponent<MeshRenderer>().material = MapMaterials[id - 1];
         //Debug.Log("setting map of size " + size + " at position " + pos);
-        mapWidth = Mathf.RoundToInt(size.x);
-        mapHeight = Mathf.RoundToInt(size.y);
+        width = Mathf.RoundToInt(size.x);
+        height = Mathf.RoundToInt(size.y);
         gameObject.transform.position = new Vector3(pos.x, 0, pos.y);
         seed = _seed == -1 ? Random.Range(0, 999) : _seed;
+        Debug.Log("using seed "+  seed);
         GenerateMap();
+        
         return seed;
     }
     private Renderer textureRender;
 
+    public List<Material> MapMaterials;
     public enum DrawMode {NoiseMap, ColourMap};
 	public DrawMode drawMode; 
 
-	public int mapWidth;
-	public int mapHeight;
+	public int width;
+	public int height;
 	public float noiseScale;
 
 	public int octaves;
@@ -49,34 +53,35 @@ public class MapGenerator : MonoBehaviour
     {
         return seed;
     }
-	
+    public Color[] colourMap; 
+
 	public void GenerateMap()
     {
-		float[,] noiseMap = Noise.GenerateNoiseMap (mapWidth, mapHeight, seed, noiseScale, octaves, persistance, lacunarity, offset);
+		float[,] noiseMap = Noise.GenerateNoiseMap (width, height, seed, noiseScale, octaves, persistance, lacunarity, offset);
 
-		Color[] colourMap = new Color[mapWidth * mapHeight];
-		for (int y = 0; y < mapHeight; y++) {
-			for (int x = 0; x < mapWidth; x++) {
+		colourMap = new Color[width * height];
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
 				float currentHeight = noiseMap [x, y];
 				//now finf whihc region this current height falls within
 				for (int i = 0; i < regions.Length; i++) {
 					if (currentHeight <= regions [i].height) {
-						colourMap [y * mapWidth + x] = regions [i].colour;
+						colourMap [y * width + x] = regions [i].colour;
 						break;
 
 					}
 				}
 			}
 		}
-		DrawTexture(TextureGenerator.TextureFromColourMap (colourMap, mapWidth, mapHeight));
+		DrawTexture(TextureGenerator.TextureFromColourMap (colourMap, width, height));
 	}
 
 	void OnValidate(){
-		if (mapWidth < 1) {
-			mapWidth = 1;
+		if (width < 1) {
+            width = 1;
 		}
-		if (mapHeight < 1) {
-			mapHeight = 1;
+		if (height < 1) {
+            height = 1;
 		}
 		if (lacunarity < 1) {
 			lacunarity = 1;

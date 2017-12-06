@@ -26,7 +26,7 @@ GameObject:
   - component: {fileID: 65591133800260316}
   m_Layer: 0
   m_Name: GameMap
-  m_TagString: Untagged
+  m_TagString: Map
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -39,7 +39,7 @@ Transform:
   m_GameObject: {fileID: 1101131643787118}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 859.7, y: -3.49, z: 50.6}
-  m_LocalScale: {x: 250, y: 1, z: 250}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
@@ -120,9 +120,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6134c8a12da8447c4958294286ce2255, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  MapMaterials:
+  - {fileID: 2100000, guid: 35255da6727674e3fb97af863d6ce04d, type: 2}
+  - {fileID: 2100000, guid: 30fdcadeae7b1164d9859085c08054f6, type: 2}
+  - {fileID: 2100000, guid: 021a61a68eafdad4a9a936ba4826a3d2, type: 2}
+  - {fileID: 2100000, guid: 0d81b367ed8efd942bdd1071f199269e, type: 2}
   drawMode: 1
-  mapWidth: 250
-  mapHeight: 250
+  width: 1
+  height: 1
   noiseScale: 85
   octaves: 5
   persistance: 0.52
@@ -140,3 +145,5 @@ MonoBehaviour:
   - name: Land
     height: 1
     colour: {r: 0.023529412, g: 0.3529412, b: 0.13333334, a: 0}
+  colourMap:
+  - {r: 0.023529412, g: 0.3529412, b: 0.13333334, a: 0}

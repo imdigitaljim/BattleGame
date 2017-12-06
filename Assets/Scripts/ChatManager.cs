@@ -10,6 +10,7 @@ using System;
 public class ChatManager : MonoBehaviour {
 
 
+    private GameObject window;
     private RectTransform chatContent;
     private Text chatLine;
     private InputField inputField;
@@ -18,20 +19,31 @@ public class ChatManager : MonoBehaviour {
     // Use this for initialization
     void Start ()
     {
+        window = GameObject.Find("ChatWindow");
         net = gameObject.GetComponent<NetworkConnectionP2P>();
         chatContent = GameObject.Find("ChatContent").GetComponent<RectTransform>();
         chatLine = GameObject.Find("Chat Line").GetComponent<Text>();
         chatLine.gameObject.SetActive(false);
-        inputField = GameObject.Find("ChatInput").GetComponent<InputField>(); ;
-        chatScroll = GameObject.Find("Scroll View").GetComponent<ScrollRect>(); ;
+        inputField = GameObject.Find("ChatInput").GetComponent<InputField>();
+        chatScroll = GameObject.Find("Scroll View").GetComponent<ScrollRect>();
+        window.SetActive(false);
     }
 	
 	// Update is called once per frame
 	void Update ()
     {
-		
+		if (!window.activeSelf && net.IsConnected)
+        {
+            window.SetActive(true);
+        }
 	}
-
+    public void Clear()
+    {
+        //foreach (Transform child in chatContent)
+        //{
+        //    Destroy(child);
+        //}
+    }
     public void AppendNewText(string text)
     {
         var newChatLine = (Instantiate(chatLine.gameObject)).GetComponent<Text>();
@@ -50,7 +62,7 @@ public class ChatManager : MonoBehaviour {
     {
         if (input.text.Length > 0)
         {
-            var text = "Player " + net.this_player_id + ": " + input.text;
+            var text = "Player " + net.CurrentPlayerId + ": " + input.text;
             AppendNewText(text);
 
             //reset input

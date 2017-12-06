@@ -1322,8 +1322,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9e601bfe3c246d4880c4b8f8381d847, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  slider_max: 2
-  this_player_id: 0
+  CurrentPlayerId: 1
+  SessionPlayerMax: 2
+  IsConnected: 0
+  AllMapsReceived: 0
+  AllPeersReady: 0
+  MaxLongWait: 5
+  MaxShortWait: 2
 --- !u!4 &2005539776
 Transform:
   m_ObjectHideFlags: 0
@@ -1359,9 +1364,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d21eeb04d9338cf4ca543a904db3f32a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameMapPrefab: {fileID: 1101131643787118, guid: 06754802a2462d64cb142eb196987785,
+  GameMapPrefab: {fileID: 1101131643787118, guid: 06754802a2462d64cb142eb196987785,
     type: 2}
-  net: {fileID: 0}
 --- !u!114 &2005539779
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1373,6 +1377,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9c8c07ae098c144aafe63034df34722, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  UnitPrefab: {fileID: 1202593977204332, guid: 5941b42228287e649834dee1fbe8c3af, type: 2}
+  AttackPrefab: {fileID: 1414090126037426, guid: cd8cef77290d2314990dc249274fd423,
+    type: 2}
+  ReceivePrefab: {fileID: 1414090126037426, guid: e20315a955e5d9046ba1aa0079a47941,
+    type: 2}
+  CurrentPhase: 0
 --- !u!1 &2137961852
 GameObject:
   m_ObjectHideFlags: 0
