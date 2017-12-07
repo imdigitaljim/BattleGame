@@ -10,32 +10,25 @@ using System;
 public class NetworkConnectionP2P : MonoBehaviour
 {
     private int connectionId, channelId, hostId;
-
-    private readonly int MAX_PLAYERS = 4;
     [HideInInspector]
-    public int CurrentPlayerId = 1, SessionPlayerMax = 2;
+    public int CurrentPlayerId = 1, PlayerMax = 2;
 
-    private int this_player_port;
+    private int CurrentPlayerPort;
 
     [HideInInspector]
-    public bool IsConnected = false;
-    public bool AllMapsReceived = false;
-    public bool AllPeersReady = false;
+    public bool IsConnected = false, AllMapsReceived = false, AllPeersReady = false;
     [HideInInspector]
-    public float MaxLongWait = 5.0f, MaxShortWait = 2.0f;
-    [HideInInspector]
+    private float MaxLongWait = 5.0f, MaxShortWait = 2.0f;
+ 
     private ChatManager Chat;
     private MapSpawn Spawner;
     private UserActionManager User;
-
     void Start()
     {
         Application.runInBackground = true;
         Chat = gameObject.GetComponent<ChatManager>();
         Spawner = gameObject.GetComponent<MapSpawn>();
         User = gameObject.GetComponent<UserActionManager>();
-        InitData();
-
     }
     void Update()
     {
@@ -53,7 +46,7 @@ public class NetworkConnectionP2P : MonoBehaviour
         CurrentWait += Time.deltaTime;
         if (CurrentWait <= MaxShortWait) return;
         CurrentWait = 0;
-        SendData("", READY);
+        SendData("", Protocol.READY);
         foreach (var entry in ReadyChecks)
         {
             if (!entry.Value) return;
@@ -65,25 +58,25 @@ public class NetworkConnectionP2P : MonoBehaviour
     {
         CurrentWait += Time.deltaTime;
         if (CurrentWait <= MaxLongWait) return;
-        for (int i = 1; i <= SessionPlayerMax; i++)
+        for (int i = 1; i <= PlayerMax; i++)
         {
             if (!MapSeeds.ContainsKey(i))
             {
                 //DebugLog(string.Format("Missing Player {0} ", i));
-                SendData("", REQUEST, new List<int>(){ i } );
+                SendData("", Protocol.REQUEST, new List<int>(){ i } );
             }
 
         }
         CurrentWait = 0;
     }
 
-    public void DebugLog(string message)
+    public void LogChat(string message)
     {
         Debug.LogFormat(message);
         Chat.AppendNewText(message);
 
     }
-    private void Bind()
+    private bool Bind()
     {
         // Init Transport using default values.
         NetworkTransport.Init();
@@ -94,37 +87,32 @@ public class NetworkConnectionP2P : MonoBehaviour
 
         // Create a topology based on the connection config.
         HostTopology topology = new HostTopology(config, 10);
-
-        hostId = NetworkTransport.AddHost(topology, this_player_port);
+       // LogChat(string.Format("using port {0}", CurrentPlayerPort));
+        hostId = NetworkTransport.AddHost(topology, CurrentPlayerPort);
+       // LogChat(string.Format("hostid = {0}", hostId));
+        return hostId < 0;
     }
-   
 
-
+    
     //this is for local-use only
-    private Dictionary<int, int> ALL_PORTS = new Dictionary<int, int>();
+    private Dictionary<int, int> PortTable = new Dictionary<int, int>()
+    {
+        {1, 11111}, {2, 11112}, {3, 11113}, {4, 11114}
+    };
     private Dictionary<int, int> PeerFds = new Dictionary<int, int>();
     private Dictionary<int, int> MapSeeds = new Dictionary<int, int>();
     private Dictionary<int, bool> ReadyChecks = new Dictionary<int, bool>();
     private Dictionary<int, int> ConnectionIdTable = new Dictionary<int, int>(); //id : player#
 
-    private void InitData()
+    public void Reset()
     {
-        ALL_PORTS[1] = 11111;
-        ALL_PORTS[2] = 11112;
-        ALL_PORTS[3] = 11113;
-        ALL_PORTS[4] = 11114;
-    }
-
-    private void Reset()
-    {
-        Debug.Log("resetting...");
+       // Debug.Log("resetting...");
         IsConnected = AllMapsReceived = AllPeersReady = false;
         byte error;
         foreach(var entry in PeerFds)
         {
-            DebugLog("disconnecting from player "+ entry.Key + " fd=" + entry.Value);
+            LogChat(string.Format("Disconnecting from Player {0} fd:{1}", entry.Key, entry.Value));
             NetworkTransport.Disconnect(hostId, entry.Value, out error);
-
         }
         ReadyChecks.Clear();
         NetworkTransport.RemoveHost(hostId);
@@ -136,49 +124,36 @@ public class NetworkConnectionP2P : MonoBehaviour
         //Chat.Clear();
     }
 
-    private void OnGUI()
-    {
-        GUI.Label(new Rect(10, 40, 150, 50), string.Format("Selected Player: {0} of {1}", CurrentPlayerId, SessionPlayerMax));
-        if (!IsConnected)
-        {
-            GUI.Label(new Rect(10, 10, 150, 50), string.Format("Max Players: {0}", SessionPlayerMax));
-            SessionPlayerMax = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(25, 25, 100, 30), SessionPlayerMax, 2, MAX_PLAYERS));
-            CurrentPlayerId = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(25, 55, 100, 30), CurrentPlayerId, 1, SessionPlayerMax));
 
-            if (GUI.Button(new Rect(40, 80, 50, 30), "Select") )
-            {
-                /* local use*/
-                this_player_port = ALL_PORTS[CurrentPlayerId];
-                Bind();
-                OpenToPeers();
-                
-            }
-        }
-        else
-        {
-            if (GUI.Button(new Rect(140, 10, 60, 30), "Reset"))
-            {
-                Reset();
-            }
-        }
+    public bool BeginConnect(List<ConnectionInfo> peers, int max, int selected)
+    {
+        PlayerMax = max;
+        CurrentPlayerId = selected;
+        CurrentPlayerPort = peers[selected - 1].Port < 0 ? PortTable[selected] : peers[selected - 1].Port;
+        //LogChat(string.Format("I'm Player {0} of {1} on port {2}", selected, max, CurrentPlayerPort));
+        Bind();
+        OpenToPeers(peers);
+        LogChat(string.Format("I'm Player {0} of {1} on port {2}", selected, max, CurrentPlayerPort));
+        return true;
     }
 
-
-
-    void OpenToPeers()
+    void OpenToPeers(List<ConnectionInfo> peers)
     {
       //  DebugLog("trying to connect...");
         byte error;
-        for(int i = 1; i <= SessionPlayerMax; i++)
+        for(int i = 1; i <= PlayerMax; i++)
         {
             if (i == CurrentPlayerId) continue;
-            PeerFds[i] = NetworkTransport.Connect(hostId, "127.0.0.1", ALL_PORTS[i], 0, out error);
+            var ipaddress = peers[i - 1].IpAddress == string.Empty ? "127.0.0.1" : peers[i - 1].IpAddress;
+            var port = peers[i - 1].Port < 0 ? PortTable[i] : peers[i - 1].Port;
+            LogChat(string.Format("Connecting to {0}:{1}", ipaddress, port));
+            PeerFds[i] = NetworkTransport.Connect(hostId, ipaddress, port, 0, out error);
             // DebugLog(string.Format("Connected to topology. fd: {0} for player {1}", peer_fds[i], i));
             ReadyChecks[i] = false;
         }
         IsConnected = true;
-        MapSeeds[CurrentPlayerId] = Spawner.SpawnMap(CurrentPlayerId, SessionPlayerMax);
-        DebugLog("Awaiting Peer Connections!"); 
+        MapSeeds[CurrentPlayerId] = Spawner.SpawnMap(CurrentPlayerId, PlayerMax);
+        LogChat("Awaiting Peer Connections!"); 
     }
 
     public void SendData(string message, byte type, List<int> players = null)
@@ -269,16 +244,16 @@ public class NetworkConnectionP2P : MonoBehaviour
 
     void OnConnect(int hostId, int connectionId, NetworkError error)
     {
-        //DebugLog("OnConnect(hostId = " + hostId + ", connectionId = "
+        //LogChat("OnConnect(hostId = " + hostId + ", connectionId = "
         //    + connectionId + ", error = " + error.ToString() + ")");
-        SendData(string.Format("{0}|{1}", CurrentPlayerId, MapSeeds[CurrentPlayerId]), SYNC);
+        SendData(string.Format("{0}|{1}", CurrentPlayerId, MapSeeds[CurrentPlayerId]), Protocol.SYNC);
     }
 
     void OnDisconnect(int hostId, int connectionId, NetworkError error)
     {
         if (ConnectionIdTable.ContainsKey(connectionId))
         {
-            DebugLog(string.Format("Player {0} disconnected (id={1})", ConnectionIdTable[connectionId], connectionId));
+            LogChat(string.Format("Player {0} disconnected (id={1})", ConnectionIdTable[connectionId], connectionId));
             ReadyChecks[ConnectionIdTable[connectionId]] = false;
             ConnectionIdTable.Remove(connectionId);
         }
@@ -293,13 +268,6 @@ public class NetworkConnectionP2P : MonoBehaviour
    
  
 
-    public const byte CHAT = 0;
-    public const byte OTHER = 1;
-    public const byte SYNC = 2;
-    public const byte REQUEST = 3;
-    public const byte ATTACK = 4;
-    public const byte READY = 5;
-    public const byte OUTCOME = 6;
 
 
     public string GetPlayersNotReady()
@@ -328,50 +296,50 @@ public class NetworkConnectionP2P : MonoBehaviour
         List<Vector3> hits = new List<Vector3>();
         switch (buffer[0])
         {
-            case CHAT:
+            case Protocol.CHAT:
                 //DebugLog("CHAT\n===============================================");
-                DebugLog(message);
+                LogChat(message);
                 break;
-            case SYNC:
+            case Protocol.SYNC:
                 //DebugLog("MAP\n===============================================");
                 packet = message.Split('|');
                 Int32.TryParse(packet[0], out from_peer);
                 Int32.TryParse(packet[1], out seed);
                 ConnectionIdTable[connectionId] = from_peer;
                 if (MapSeeds.ContainsKey(from_peer) && MapSeeds[from_peer] == seed) break;
-                DebugLog(string.Format("Player {0} is connected.(id={1})[seed={2}]", from_peer, connectionId, seed)); 
+                LogChat(string.Format("Player {0} is connected.(id={1})[seed={2}]", from_peer, connectionId, seed)); 
                 MapSeeds[from_peer] = seed;
-                Spawner.SpawnMap(from_peer, SessionPlayerMax, seed);
-                for (i = 1; i <= SessionPlayerMax; ++i)
+                Spawner.SpawnMap(from_peer, PlayerMax, seed);
+                for (i = 1; i <= PlayerMax; ++i)
                 {
                     if (!MapSeeds.ContainsKey(i)) 
                     {
-                        DebugLog(string.Format("Still Waiting for Player {0} to Connect!", i));
+                        LogChat(string.Format("Still Waiting for Player {0} to Connect!", i));
                         break;
                     }
                 }
-                AllMapsReceived = i > SessionPlayerMax;
+                AllMapsReceived = i > PlayerMax;
                 if (AllMapsReceived)
                 {
-                    DebugLog("All Players Connected!");
+                    LogChat("All Players Connected!");
                     Spawner.SetActive(true);
                     User.InitializeGame();
                 }
                 //send READY if received all
                 break;
-            case REQUEST:
+            case Protocol.REQUEST:
                 //DebugLog("REQUEST\n===============================================");   
                 // from_peer = ConnectionIdTable[connectionId];
                 from_peer = ConnectionIdTable[connectionId];
-                SendData(string.Format("{0}|{1}", CurrentPlayerId, MapSeeds[CurrentPlayerId]), SYNC, new List<int>() { from_peer });
+                SendData(string.Format("{0}|{1}", CurrentPlayerId, MapSeeds[CurrentPlayerId]), Protocol.SYNC, new List<int>() { from_peer });
                 break;
-            case READY:
+            case Protocol.READY:
                 ReadyChecks[ConnectionIdTable[connectionId]] = true;
-                DebugLog(string.Format("Player {0} is now ready!", ConnectionIdTable[connectionId]));
+                LogChat(string.Format("Player {0} is now ready!", ConnectionIdTable[connectionId]));
                 var notReady = GetPlayersNotReady();
                 if (notReady != string.Empty)
                 {
-                    DebugLog("Waiting on " + notReady);
+                    LogChat("Waiting on " + notReady);
                 }
                 else
                 {
@@ -382,7 +350,7 @@ public class NetworkConnectionP2P : MonoBehaviour
                     }
                 }
                  break;
-            case ATTACK:
+            case Protocol.ATTACK:
                 //string.Format("{0}|{1}|{2}", id, point.x, point.z)3
                 from_peer = ConnectionIdTable[connectionId];
                 packet = message.Split('|');
@@ -394,11 +362,11 @@ public class NetworkConnectionP2P : MonoBehaviour
                 if (CurrentPlayerId == to_peer)
                 {
                     hits = User.ReceiveAttack(attackPosition);
-                    SendData(SerializeHits(hits), OUTCOME);
+                    SendData(SerializeHits(hits), Protocol.OUTCOME);
                 }
                 User.IncrementTurn();
                 break;
-            case OUTCOME:
+            case Protocol.OUTCOME:
                 from_peer = ConnectionIdTable[connectionId];
                 var hitcount = 0;
                 packet = message.Split('|');
@@ -414,17 +382,13 @@ public class NetworkConnectionP2P : MonoBehaviour
                 }
                 if (hitcount == 0)
                 {
-                    DebugLog("Attack Missed!");
+                    LogChat("Attack Missed!");
                 }
                 else
                 {
-                    DebugLog(string.Format("You Destroyed a Unit of Player {0}!", from_peer));
+                    LogChat(string.Format("You Destroyed a Unit of Player {0}!", from_peer));
                 }
                 User.IncrementTurn();
-                break;
-            case OTHER:
-                //DebugLog("OTHER\n===============================================");
-                // do something
                 break;
              default:
                 //DebugLog("DEFAULT\n===============================================");

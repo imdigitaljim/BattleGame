@@ -10,15 +10,13 @@ public class UserActionManager : MonoBehaviour {
     private List<GameObject> AttackGameObjects = new List<GameObject>();
     private List<GameObject> ReceivedAttackGameObjects = new List<GameObject>();
     private List<GameObject> DestroyedUnitGameObjects = new List<GameObject>();
-    public GameObject UnitPrefab;
-    public GameObject AttackPrefab;
-    public GameObject ReceivePrefab;
+    private UIManager UIPanel;
+    public GameObject UnitPrefab, AttackPrefab, ReceivePrefab;
 
     private const int PHASE_PLACEMENT = 0;
     private const int PHASE_AWAITALL = 1;
     private const int PHASE_OTHERTURN = 2;
     private const int PHASE_MYTURN = 3;
-    private const int PHASE_GAMECOMPLETE = 4;
 
     public Dictionary<int, int> HealthCounts = new Dictionary<int, int>();
     public int CurrentPhase = PHASE_PLACEMENT;
@@ -27,13 +25,13 @@ public class UserActionManager : MonoBehaviour {
 
     public void InitializeGame()
     {
-        net.DebugLog("Click on your map to place units.");
-        net.DebugLog(string.Format("Place {0} units!", MAX_UNITS - UnitGameObjects.Count));
+        net.LogChat("Click on your map to place units.");
+        net.LogChat(string.Format("Place {0} units!", MAX_UNITS - UnitGameObjects.Count));
     }
     public void Begin()
     {
-        net.DebugLog("Beginning!");
-        for (int i = 1; i <= net.SessionPlayerMax; ++i)
+        net.LogChat("Game is Starting!");
+        for (int i = 1; i <= net.PlayerMax; ++i)
         {
             HealthCounts[i] = UnitGameObjects.Count;
         }
@@ -44,62 +42,73 @@ public class UserActionManager : MonoBehaviour {
     {
         if (net.CurrentPlayerId == CurrentPlayerTurn)
         {
-            net.DebugLog("Your Turn!");
+            net.LogChat("Your Turn! Click a Spot on the Enemy Map to Attack!");
             CurrentPhase = PHASE_MYTURN;
         }
         else
         {
-            net.DebugLog(string.Format("Player {0}'s turn.", CurrentPlayerTurn));
+            net.LogChat(string.Format("Player {0}'s turn. Wait while they attack!", CurrentPlayerTurn));
             CurrentPhase = PHASE_OTHERTURN;
         }
     }
     public void IncrementTurn()
     {
         CheckConditions();
-
-        int next_turn;
-        int test_win = CurrentPlayerTurn;
-        for (int i = 0; i < net.SessionPlayerMax; i++)
+        int StartTurn = CurrentPlayerTurn;
+        for (int i = 0; i < net.PlayerMax; i++)
         {
-            next_turn = (CurrentPlayerTurn % net.SessionPlayerMax) + 1;
-            if (HealthCounts[next_turn] > 0)
-            {
-                CurrentPlayerTurn = next_turn;
-                break;
-            }
-        }
-        if (CurrentPlayerTurn == test_win) return;
+            CurrentPlayerTurn = (CurrentPlayerTurn % net.PlayerMax) + 1;
+            if (HealthCounts[CurrentPlayerTurn] > 0) break;
+         }
+        if (StartTurn == CurrentPlayerTurn) return;
         CurrentPhase = CurrentPlayerTurn == net.CurrentPlayerId ? PHASE_MYTURN : PHASE_OTHERTURN;
         PromptTurn();
     }
     void CheckConditions()
     {
-
-        for (int i = 1; i <= net.SessionPlayerMax; i++)
+        bool hasLost = false;
+        for (int i = 1; i <= net.PlayerMax; i++)
         {
             if (HealthCounts[i] == 0)
             {
                 HealthCounts[i]--;
                 if (i == net.CurrentPlayerId)
                 {
-                    net.DebugLog("You lost! All your units are destroyed!");
-                    CurrentPhase = PHASE_GAMECOMPLETE;
-                    //TODO: Change to lose screen
-                    return;
+                    net.LogChat("You lost! All your units are destroyed!");
+                    hasLost = true;
+                    break;
                 }
                 else
                 {
-                    net.DebugLog(string.Format("Player {0} has been destroyed!", i));
+                    net.LogChat(string.Format("Player {0} has been destroyed!", i));
+                    net.LogChat(string.Format("Players Remaining {0}", GetRemainingPlayerCount()));
                 }
             }
+            if (HealthCounts[i] <= 0 && i == net.CurrentPlayerId)
+            {
+                hasLost = true;
+                break;
+            }
         }
+        if (GetRemainingPlayerCount() > 1) return;
+        StartCoroutine(WaitAndChangeScene(hasLost ? 1 : 2));
+    }
+
+    private int GetRemainingPlayerCount()
+    {
+        int count = 0;
         foreach (var health in HealthCounts)
         {
-            if (health.Value > 0 && health.Key != net.CurrentPlayerId) return;
+            if (health.Value > 0)
+                count++;
         }
-        CurrentPhase = PHASE_GAMECOMPLETE;
-        net.DebugLog("You destroyed all the opponents! You win!!");
-        //TODO: Change to Win Screen
+        return count;
+    }
+
+    private IEnumerator WaitAndChangeScene(int condition)
+    {
+        yield return new WaitForSeconds(.5f);
+        UIPanel.Reset(condition);
     }
 
     public bool Ready()
@@ -109,41 +118,31 @@ public class UserActionManager : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-       
+
+        UIPanel = GetComponent<UIManager>();
         net = gameObject.GetComponent<NetworkConnectionP2P>();
         
     }
+
+    public void ClearGameObjects(List<GameObject> list)
+    {
+        foreach (var unit in list)
+        {
+            if (unit != null)
+            {
+                Destroy(unit);
+            }
+        }
+    }
+
     public void Reset()
     {
-        foreach (var unit in UnitGameObjects)
-        {
-            if (unit != null)
-            {
-                Destroy(unit);
-            }
-        }
-        foreach (var unit in ReceivedAttackGameObjects)
-        {
-            if (unit != null)
-            {
-                Destroy(unit);
-            }
-        }
-        foreach (var unit in AttackGameObjects)
-        {
-            if (unit != null)
-            {
-                Destroy(unit);
-            }
-        }
-        foreach (var unit in DestroyedUnitGameObjects)
-        {
-            if (unit != null)
-            {
-                Destroy(unit);
-            }
-        }
+        ClearGameObjects(UnitGameObjects);
+        ClearGameObjects(ReceivedAttackGameObjects);
+        ClearGameObjects(AttackGameObjects);
+        ClearGameObjects(DestroyedUnitGameObjects);
         CurrentPhase = PHASE_PLACEMENT;
+        CurrentPlayerTurn = 1;
         DestroyedUnitGameObjects.Clear();
         UnitGameObjects.Clear();
         ReceivedAttackGameObjects.Clear();
@@ -162,8 +161,7 @@ public class UserActionManager : MonoBehaviour {
     void Clicked()
     {
         var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-
-        RaycastHit hit = new RaycastHit();
+        var hit = new RaycastHit();
 
         if (Physics.Raycast(ray, out hit))
         {
@@ -183,13 +181,11 @@ public class UserActionManager : MonoBehaviour {
             case PHASE_AWAITALL:
                 break;
             case PHASE_PLACEMENT:
-                net.DebugLog(string.Format("clicked on map of player {0} at {1}", id, point));
+                //net.LogChat(string.Format("clicked on map of player {0} at {1}", id, point));
                 PlaceUnit(id, point);
                 break;
             case PHASE_OTHERTURN:
-                net.DebugLog(string.Format("Waiting for other players turns, Current Player {0}", CurrentPlayerTurn));
-                break;
-            case PHASE_GAMECOMPLETE:
+                net.LogChat(string.Format("Waiting for other players turns, Current Player {0}", CurrentPlayerTurn));
                 break;
             case PHASE_MYTURN:
                // net.DebugLog(string.Format("clicked on map of player {0} at {1}", id, point));
@@ -211,7 +207,7 @@ public class UserActionManager : MonoBehaviour {
             if (_obj.gameObject.tag == "Player")
             {
                 HealthCounts[net.CurrentPlayerId]--;
-                net.DebugLog("You lost a unit!");
+                net.LogChat("You lost a unit!");
                 _obj.gameObject.tag = "Untagged";
                 hits.Add(_obj.gameObject.transform.position);
                 _obj.gameObject.GetComponent<Renderer>().material.color = Color.red;
@@ -225,14 +221,14 @@ public class UserActionManager : MonoBehaviour {
     {
         if (id == net.CurrentPlayerId)
         {
-            net.DebugLog("This is Your Map, Attack the Opponent!");
+            net.LogChat("This is Your Map, Attack the Opponent!");
         }
         else
         {
             var attack = Instantiate(AttackPrefab);
             attack.transform.position = point;
             AttackGameObjects.Add(attack);
-            net.SendData(string.Format("{0}|{1}|{2}", id, point.x, point.z), NetworkConnectionP2P.ATTACK);
+            net.SendData(string.Format("{0}|{1}|{2}", id, point.x, point.z), Protocol.ATTACK, new List<int>() { id });
         }
     }
     
@@ -254,13 +250,13 @@ public class UserActionManager : MonoBehaviour {
             UnitGameObjects.Add(next_unit);
             if (UnitGameObjects.Count == MAX_UNITS)
             {
-                net.DebugLog("Unit Placement Complete!");
+                net.LogChat("Unit Placement Complete!");
                
                 CurrentPhase = PHASE_AWAITALL;
-                net.SendData("", NetworkConnectionP2P.READY);
+                net.SendData("", Protocol.READY);
                 if (!net.AllPeersReady)
                 {
-                    net.DebugLog("Waiting on Other Player Placements");
+                    net.LogChat("Waiting on Other Player Placements");
                 }
                 else
                 {
@@ -269,12 +265,12 @@ public class UserActionManager : MonoBehaviour {
             }
             else
             {
-                net.DebugLog(string.Format("Place {0} units!", MAX_UNITS - UnitGameObjects.Count));
+                net.LogChat(string.Format("Place {0} units!", MAX_UNITS - UnitGameObjects.Count));
             }
         }
         else
         {
-            net.DebugLog("Wrong Map!");
+            net.LogChat("Wrong Map! Place Units on Your Map!");
         }
     }
 }

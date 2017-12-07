@@ -14,34 +14,63 @@ public class MapSpawn : MonoBehaviour
 
     public GameObject GameMapPrefab;
     public Dictionary<int, GameObject> MapObjects = new Dictionary<int, GameObject>();
-    private NetworkConnectionP2P net;
-    private Dictionary<int, Vector2> MapSizes = new Dictionary<int, Vector2>();
-    private Dictionary<int, Dictionary<int, Vector2>> MapPositions = new Dictionary<int, Dictionary<int, Vector2>>();
-    // Use this for initialization
-    void Start ()
+    private Dictionary<int, Vector2> MapSizes = new Dictionary<int, Vector2>()
     {
-        net = gameObject.GetComponent<NetworkConnectionP2P>();
-        MapSizes[TWO_PLAYER_MATCH] = new Vector2(250, 100);
-        MapSizes[THREE_PLAYER_MATCH] = new Vector2(250, 80);
-        MapSizes[FOUR_PLAYER_MATCH] = new Vector2(125, 100);
-        MapPositions[TWO_PLAYER_MATCH] = new Dictionary<int, Vector2>()
+        {TWO_PLAYER_MATCH,  new Vector2(250, 100)},
+        {THREE_PLAYER_MATCH, new Vector2(250, 80)},
+        {FOUR_PLAYER_MATCH, new Vector2(125, 100) }
+    };
+    private Dictionary<int, Dictionary<int, Vector2>> MapPositions = new Dictionary<int, Dictionary<int, Vector2>>()
+    {
+        {TWO_PLAYER_MATCH, new Dictionary<int, Vector2>()
         {
-            { PLAYER1, new Vector2(850, 635) },
-            { PLAYER2, new Vector2(850, -560) }
-        };
-        MapPositions[THREE_PLAYER_MATCH] = new Dictionary<int, Vector2>()
+             { PLAYER1, new Vector2(850, 635) },
+             { PLAYER2, new Vector2(850, -560) }
+        }},
+        {THREE_PLAYER_MATCH, new Dictionary<int, Vector2>()
         {
-            { PLAYER1, new Vector2(850, 730) },
-            { PLAYER2, new Vector2(850, 85) },
-            { PLAYER3, new Vector2(850, -635) }
-        };
-        MapPositions[FOUR_PLAYER_MATCH] = new Dictionary<int, Vector2>()
+            { PLAYER1, new Vector2(850, 810) },
+            { PLAYER2, new Vector2(850, -20) },
+            { PLAYER3, new Vector2(850, -860) }
+        }},
+        {FOUR_PLAYER_MATCH,  new Dictionary<int, Vector2>()
         {
-            { PLAYER1, new Vector2(300, 730) },
-            { PLAYER2, new Vector2(1600, 730) },
-            { PLAYER3, new Vector2(300, -635) },
+            { PLAYER1, new Vector2(200, 550) },
+            { PLAYER2, new Vector2(1600, 550) },
+            { PLAYER3, new Vector2(200, -635) },
             { PLAYER4, new Vector2(1600, -635) }
-        };
+        }}
+    };
+    private Dictionary<int, Dictionary<int, Vector2>> LabelPositions = new Dictionary<int, Dictionary<int, Vector2>>()
+    { 
+        {TWO_PLAYER_MATCH, new Dictionary<int, Vector2>()
+        {
+             { PLAYER1, new Vector2(-155, 240) },
+             { PLAYER2, new Vector2(-155, -150) }
+        }},
+        {THREE_PLAYER_MATCH, new Dictionary<int, Vector2>()
+        {
+            { PLAYER1, new Vector2(-155, 300) },
+            { PLAYER2, new Vector2(-155, 30) },
+            { PLAYER3, new Vector2(-155, -240) }
+        }},
+        {FOUR_PLAYER_MATCH,  new Dictionary<int, Vector2>()
+        {
+            { PLAYER1, new Vector2(-160, 215) },
+            { PLAYER2, new Vector2(295, 215) },
+            { PLAYER3, new Vector2(-160, -165) },
+            { PLAYER4, new Vector2(295, -165) }
+        }}
+    };
+    private Dictionary<int, GameObject> MapLabels = new Dictionary<int, GameObject>();
+    // Use this for initialization
+    void Awake ()
+    {
+        MapLabels[1] = GameObject.Find("Player1Label");
+        MapLabels[2] = GameObject.Find("Player2Label");
+        MapLabels[3] = GameObject.Find("Player3Label");
+        MapLabels[4] = GameObject.Find("Player4Label");
+        Debug.Log(MapLabels[1]);
     }
 	public int SpawnMap(int playerId, int max_players,  int seed = -1)
     {
@@ -49,9 +78,19 @@ public class MapSpawn : MonoBehaviour
         if (MapObjects.ContainsKey(playerId))
             Destroy(MapObjects[playerId]);
         MapObjects[playerId] = Instantiate(GameMapPrefab);
-        MapObjects[playerId].GetComponent<MapInteraction>().ConnectToNetwork(net, playerId);
+        MapObjects[playerId].GetComponent<MapInteraction>().SetId(playerId);
         MapObjects[playerId].SetActive(false);
         var positions = MapPositions[max_players][playerId];
+        foreach (var label in MapLabels)
+        {
+            label.Value.SetActive(false);
+        }
+        for (int i = 1; i <= max_players; i++)
+        {
+            MapLabels[i].transform.localPosition = LabelPositions[max_players][i];
+            MapLabels[i].SetActive(true);
+
+        }
         return MapObjects[playerId].GetComponent<MapGenerator>().SetNewMap(MapSizes[max_players], positions, seed, playerId);
     }
     public void SetActive(bool value)

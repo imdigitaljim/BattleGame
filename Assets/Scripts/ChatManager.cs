@@ -36,6 +36,10 @@ public class ChatManager : MonoBehaviour {
         {
             window.SetActive(true);
         }
+        if (window.activeSelf && !net.IsConnected)
+        {
+            window.SetActive(false);
+        }
 	}
     public void Clear()
     {

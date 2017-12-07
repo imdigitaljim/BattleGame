@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Example : MonoBehaviour {
+public class ReloadScene : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
@@ -13,4 +13,9 @@ public class Example : MonoBehaviour {
 	void Update () {
 		
 	}
+    
+    public void StartOver()
+    {
+        Application.LoadLevel("BattleGame");
+    }
 }
