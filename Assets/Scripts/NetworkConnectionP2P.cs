@@ -76,7 +76,7 @@ public class NetworkConnectionP2P : MonoBehaviour
         Chat.AppendNewText(message);
 
     }
-    private bool Bind()
+    private bool InitNetworkTransport()
     {
         // Init Transport using default values.
         NetworkTransport.Init();
@@ -131,7 +131,7 @@ public class NetworkConnectionP2P : MonoBehaviour
         CurrentPlayerId = selected;
         CurrentPlayerPort = peers[selected - 1].Port < 0 ? PortTable[selected] : peers[selected - 1].Port;
         //LogChat(string.Format("I'm Player {0} of {1} on port {2}", selected, max, CurrentPlayerPort));
-        Bind();
+        InitNetworkTransport();
         OpenToPeers(peers);
         LogChat(string.Format("I'm Player {0} of {1} on port {2}", selected, max, CurrentPlayerPort));
         return true;

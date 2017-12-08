@@ -5,7 +5,7 @@ using UnityEngine;
 public class UserActionManager : MonoBehaviour {
      
     private NetworkConnectionP2P net;
-    private int MAX_UNITS = 1;
+    private int MAX_UNITS = 3;
     private List<GameObject> UnitGameObjects = new List<GameObject>();
     private List<GameObject> AttackGameObjects = new List<GameObject>();
     private List<GameObject> ReceivedAttackGameObjects = new List<GameObject>();

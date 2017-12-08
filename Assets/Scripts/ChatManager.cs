@@ -77,7 +77,21 @@ public class ChatManager : MonoBehaviour {
             input.Select();
 
             // send out to other players
-            net.SendData(text, 0);
+         
+            if (text.Length < 1023)
+            {
+                net.SendData(text, 0);
+            }
+            else
+            {
+                var current_message = text;
+                while (current_message.Length > 1023)
+                {
+                    string chunk = current_message.Substring(0, 1023);
+                    net.SendData(chunk, 0);
+                    current_message = current_message.Substring(1024, current_message.Length - 1023);
+                }
+            }
         }
 
     }
